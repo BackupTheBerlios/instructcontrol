@@ -1,0 +1,132 @@
+/*
+Copyright (C) 2010 Matthew Forrester.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+DROP VIEW IF EXISTS _channelset_users;
+DROP VIEW IF EXISTS _overall_view;
+DROP TABLE IF EXISTS `instruction_data_extra`;
+DROP TABLE IF EXISTS `instruction_data`;
+DROP TABLE IF EXISTS `instruction`;
+DROP TABLE IF EXISTS `channel`;
+DROP TABLE IF EXISTS `user_channelset`;
+DROP TABLE IF EXISTS `channelset`;
+DROP TABLE IF EXISTS `user`;
+
+CREATE TABLE `user` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `communication_key` varchar(255) NOT NULL,
+  `login_key` varchar(255) NOT NULL,
+  `known_as` varchar(255) DEFAULT NULL,
+  `color` varchar(7) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user__communication_key` (`communication_key`),
+  UNIQUE KEY `user__login_key` (`login_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci;
+
+CREATE TABLE `channelset` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci;
+
+CREATE TABLE `channel` (
+  `id` bigint(20) unsigned NOT NULL auto_increment,
+  `name` varchar(255) NOT NULL,
+  `channelset_id` bigint(20) unsigned NOT NULL,
+  PRIMARY KEY  (`id`),
+  UNIQUE KEY `channel_channelset_id_idx` (`name`,`channelset_id`),
+  KEY `channelset_id_idx` (`channelset_id`),
+  CONSTRAINT `channel_channelset_id_channelset_id` FOREIGN KEY (`channelset_id`) REFERENCES `channelset` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci;
+
+CREATE TABLE `instruction` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `channel_id` bigint(20) unsigned NOT NULL,
+  `object_type` varchar(127) NOT NULL,
+  `position` bigint(20) unsigned NOT NULL,
+  `user_id` bigint(20) unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `channel_position_idx` (`channel_id`,`position`),
+  KEY `channel_id_idx` (`channel_id`),
+  KEY `user_id_idx` (`user_id`),
+  CONSTRAINT `instruction_channel_id_channel_id` FOREIGN KEY (`channel_id`) REFERENCES `channel` (`id`),
+  CONSTRAINT `instruction_user_id_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci;
+
+CREATE TABLE `instruction_data` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `parent_id` bigint(20) unsigned DEFAULT NULL,
+  `instruction_id` bigint(20) unsigned NOT NULL,
+  `k` varchar(255) DEFAULT NULL,
+  `v` varchar(255) DEFAULT NULL,
+  `extra` tinyint(3) unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `parent_k_idx` (`parent_id`,`k`),
+  KEY `instruction_id_idx` (`instruction_id`),
+  CONSTRAINT `instruction_data_instruction_id_instruction_id` FOREIGN KEY (`instruction_id`) REFERENCES `instruction` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci;
+
+CREATE TABLE `instruction_data_extra` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `instruction_data_id` bigint(20) unsigned NOT NULL,
+  `v` longblob,
+  PRIMARY KEY (`id`),
+  KEY `instruction_data_id_idx` (`instruction_data_id`),
+  CONSTRAINT `instruction_data_extra_instruction_data_id_instruction_data_id` FOREIGN KEY (`instruction_data_id`) REFERENCES `instruction_data` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci;
+
+CREATE TABLE `user_channelset` (
+  `channelset_id` bigint(20) unsigned NOT NULL default '0',
+  `user_id` bigint(20) unsigned NOT NULL default '0',
+  PRIMARY KEY  (`channelset_id`,`user_id`),
+  CONSTRAINT fk_user_channelset_channelset_id__channelset_id 
+  	FOREIGN KEY (channelset_id) REFERENCES channelset(id),
+  CONSTRAINT fk_user_channelset_user_id__user_id 
+  	FOREIGN KEY (user_id) REFERENCES user(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE utf8_general_ci;
+
+CREATE OR REPLACE VIEW _overall_view AS
+select 
+	channelset.name as channelset,
+	channel.name,
+	user.login_key,
+	instruction.position,
+	instruction.object_type,
+	instruction_data.k,
+	instruction_data.v
+from instruction
+inner join channel on channel.id = instruction.channel_id
+inner join channelset on channel.channelset_id = channelset.id
+inner join user on instruction.user_id = user.id
+left join instruction_data
+	on instruction_data.instruction_id = instruction.id
+where 
+	instruction_data.parent_id is null
+	and v is not null
+order by channelset.id asc, channel.id asc, instruction.position asc;
+
+CREATE OR REPLACE VIEW _channelset_users AS
+select
+	channelset.name,
+	user.login_key,
+	user.known_as
+from user_channelset
+inner join channelset on channelset.id = user_channelset.channelset_id
+inner join user on user.id = user_channelset.user_id
+group by channelset.id;
+

@@ -1,0 +1,108 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	<title>InstructionControl/{$config.channelset.name}</title>
+	<meta http-equiv="Content-type" value="text/html; charset=UTF-8" />
+	
+	<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false&key={$config.google_maps_api_key}"></script>
+	<script type="text/javascript" src="{$config.ape.jsf.root}/Clients/mootools-core.js"></script>
+	<script type="text/javascript" src="{$config.ape.jsf.root}/Clients/MooTools.js"></script>
+	<script type="text/javascript" src="/js/InstructionControl.class.js"></script>
+	<script type="text/javascript" src="/js/InstructionControl.mootools.js"></script>
+	<script type="text/javascript" src="/js/InstructionControl.plugins.mootools.js"></script>
+	<script type="text/javascript" src="/js/ProgressBar.js"></script>
+	<script type="text/javascript">
+		
+		function consoleLog(obj) {
+			//return true;
+			if (Browser.Engine.gecko) {
+				console.log(obj);
+			} else {
+				var x = document.getElementById('template__footer__log').innerHTML;
+				x = JSON.encode(obj)+"<li>"+x+"</li>";
+				document.getElementById('template__footer__log').innerHTML = x;
+			}
+		}
+		
+		// Set up APE
+		window.addEvent('domready',function() {
+			
+			APE.Config.baseUrl = {json_encode($config.ape.jsf.url)};
+			APE.Config.domain = 'auto';
+			APE.Config.server = {json_encode($config.ape.server)};
+			(function(){
+				for (var i = 0; i < arguments.length; i++)
+					APE.Config.scripts.push(APE.Config.baseUrl + '/Source/' + arguments[i] + '.js');
+			})('mootools-core', 'Core/APE', 'Core/Events', 'Core/Core', 'Pipe/Pipe', 'Pipe/PipeProxy', 'Pipe/PipeMulti', 'Pipe/PipeSingle', 'Request/Request','Request/Request.Stack', 'Request/Request.CycledStack', 'Transport/Transport.longPolling','Transport/Transport.SSE', 'Transport/Transport.XHRStreaming', 'Transport/Transport.JSONP', 'Core/Utility', 'Core/JSON');
+			
+			// Initialize InstructionControl
+			var client = new InstructionClient_JustMe(
+				{json_encode($config.channelset.name)},
+				{json_encode($user.communication_key)},
+				ajaxSlave_MooTools,
+				{json_encode($config.php_base_url)},
+				{ }
+				);
+			InstructionControl.getInstance().setClient(client);
+			
+		});
+	</script>
+	<script type="text/javaScript" src="/js/clientcide.2.2.0.js"></script>
+	<script type="text/javascript" src="/js/datejs/date.js"></script>
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.0.0/build/cssreset/reset-min.css"></link>
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.0.0/build/cssfonts/fonts-min.css"></link>
+	<link rel="stylesheet" type="text/css" href="/css/app.css"></link>
+</head>
+<body>
+	<div id="template__container" style="display:none">
+		<div id="template__header">InstructionControl/{$config.channelset.name}</div>
+		<div id="template__content">
+		
+			<div id="template__col">
+				<div id="template__rhs">
+					<div id="template__rinner">
+					<ul id="user_list"></ul>
+					<ul id="chat_history">&nbsp;</ul>
+					<input type="text" name="chat_input" id="chat_input"/>
+					<input type="submit" name="chat_submit" id="chat_submit" 
+						value="send"/>
+					</div>
+				</div>
+				<div id="template__main">
+					<div id="template__minner">
+					
+					<ul class="instruction_row_new newClear row">
+						<li>
+						Click here to start.
+						</li>
+					</ul>
+					
+					</div>
+				</div>
+			</div>
+		
+		</div> 
+		<div id="template__footer">
+			<ol id="template__footer__log"></ol>
+			<a href="#" id="show_credits">credits</a>
+		</div>
+	</div>
+	<div id="loading_window">
+		<div class="popup inpage">
+		{foreach $help k v}
+			<div class="content" id="help_content_{$k+1}">
+			{$v}
+			</div>
+		{/foreach}
+			<div class="footer">
+				<span id="status_area" style="float:left">
+					<div class="channel_channels" id="loading_channels">
+					</div>
+				</span>
+				<input type="submit" value="continue &gt;&gt;" id="popup_template_help_continue"/>
+				<input type="submit" disabled="disabled" value="see demo &gt;&gt;" id="popup_template_help_show"/>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

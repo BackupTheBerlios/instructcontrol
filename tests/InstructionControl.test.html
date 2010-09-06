@@ -1,0 +1,417 @@
+<html>
+<head>
+<title>Test Page for InstructionControl JS</title>
+<script language="javascript" src="jsunit/app/jsUnitCore.js"></script>
+<script language="javascript" src="InstructionControl.class.js"></script>
+<script type="text/javascript" src="/ape-jsf/Clients/mootools-core.js"></script>
+<script language="javascript" src="InstructionControl.mootools.js"></script>
+</head>
+<body>
+<script type="text/javaScript">
+
+InstructionControl._reset = function() {
+	delete this._InstructionControl;
+}
+
+function InstructionClient_NoCommunication(options) {
+	this._init(options);
+} InstructionClient_NoCommunication.prototype = {
+	_init: function(options) {
+		this._options = options;
+		this._joined = new Array();
+	},
+	_join: function(channel) {
+		this._joined.push(channel);
+	},
+	send: function(channelname,objectType,data) {
+		var position = 0;
+		var i = new Instruction(
+			objectType,
+			data,
+			position
+			);
+		InstructionControl.getInstance()._addRecievedInstruction(channelname,i,position);
+	},
+	_attached: function() {
+		InstructionControl.getInstance()._fireClientReady();
+	},
+	loadData: function(ob) {
+		var channel = InstructionControl._getKeys(ob).pop();
+		var data = ob[channel];
+		for (var i=0;i<data.length;i++) {
+			var returnData = data[i];
+			var ins = new Instruction(
+				returnData['communication_key'],
+				returnData['object_type'],
+				returnData['data'],
+				returnData['position']
+			);
+			InstructionControl.getInstance()._addRecievedInstruction(channel,ins);
+		}
+	}
+}
+	
+_testLoadOneData_DataDump = new Array();
+
+function getGlobalData() {
+	return _testLoadOneData_DataDump;
+}
+
+function pushToGlobalData(d) {
+	_testLoadOneData_DataDump.push(d);
+}
+
+function resetGlobalData() {
+	InstructionControl._reset();
+	_testLoadOneData_DataDump = new Array();
+	}
+
+function addToGlobalData(instruction) {
+	pushToGlobalData({
+		'object_type': instruction.getObjectType(),
+		'position': new String(instruction.getPosition()),
+		'data': instruction.getData()
+	});
+	return true;
+}
+
+// === Test Cases Below ================================================
+	
+function testLoadOneData() {
+	resetGlobalData();
+	var dataIn = [{"object_type":"walk","position":"0","data":{"form":"1","price":"1"}}];
+	var client = new InstructionClient_NoCommunication({});
+	InstructionControl.getInstance().setClient(client);
+	InstructionControl.getInstance().bind('zzz','walk',addToGlobalData);
+	InstructionControl.getInstance().getClientInstance().loadData({
+		'zzz': dataIn,
+		});
+	assertEquals(
+		'testLoadOneData',
+		JSON.encode(dataIn),
+		JSON.encode(getGlobalData())
+		);
+}
+
+function testGetClientInstance() {
+	var client = new InstructionClient_NoCommunication({});
+	InstructionControl.getInstance().setClient(client);
+	assertEquals('testGetClientInstance',client,InstructionControl.getInstance().getClientInstance());
+}
+
+function testGetInstruction() {
+	resetGlobalData();
+	var dataIn = [
+		{"object_type":"walk","position":0,"data":{"form":"0","price":"1"}},
+		{"object_type":"walk","position":3,"data":{"form":"3","price":"1"}},
+		{"object_type":"walk","position":1,"data":{"form":"1","price":"1"}},
+		{"object_type":"walk","position":2,"data":{"form":"2","price":"1"}},
+		{"object_type":"walk","position":1,"data":{"form":"-1","price":"1"}}
+	];
+	var client = new InstructionClient_NoCommunication({});
+	InstructionControl.getInstance().setClient(client);
+	InstructionControl.getInstance().bind('zzz','walk',addToGlobalData);
+	InstructionControl.getInstance().getClientInstance().loadData({
+		'zzz': dataIn,
+		});
+	var ins = InstructionControl.getInstance().getInstruction('zzz',1)
+	var test = {'object_type':ins.getObjectType(),'position':ins.getPosition(),
+		'data':ins.getData()};
+	assertEquals(
+		'testGetInstruction',
+		JSON.encode(dataIn[2]),
+		JSON.encode(test)
+		);
+}
+
+function testLoadOutOfOrderDataWithDuplicates() {
+	resetGlobalData();
+	var dataIn = [
+		{"object_type":"walk","position":"0","data":{"form":"0","price":"1"}},
+		{"object_type":"walk","position":"3","data":{"form":"3","price":"1"}},
+		{"object_type":"walk","position":"1","data":{"form":"1","price":"1"}},
+		{"object_type":"walk","position":"2","data":{"form":"2","price":"1"}},
+		{"object_type":"walk","position":"1","data":{"form":"-1","price":"1"}}
+	];
+	var client = new InstructionClient_NoCommunication({});
+	InstructionControl.getInstance().setClient(client);
+	InstructionControl.getInstance().bind('zzz','walk',addToGlobalData);
+	InstructionControl.getInstance().getClientInstance().loadData({
+		'zzz': dataIn,
+		});
+	assertEquals(
+		'testLoadOutOfOrderDataWithDuplicates',
+		JSON.encode(dataIn.filter(function(i) {
+			return i.data.form >= 0
+		}).sort(function(a,b) {
+			return a.position - b.position;
+		})),
+		JSON.encode(getGlobalData())
+		);
+}
+
+//function testJoinInstructionChannel() {
+//	resetGlobalData();
+//	var expected = new Array();
+//	var client = new InstructionClient_NoCommunication({});
+//	InstructionControl.getInstance().setClient(client);
+//	
+//	expected.push('c0');
+//	InstructionControl.getInstance()._joinInstructionChannel('c0');
+//	this.assertEquals('testJoinInstructionChannel1',JSON.encode(expected),
+//		JSON.encode(client._joined)
+//		);
+//	InstructionControl.getInstance().bind('c1','walk',addToGlobalData);
+//	expected.push('c1');
+//	this.assertEquals('testJoinInstructionChannel1',JSON.encode(expected),
+//		JSON.encode(client._joined)
+//		);
+//	var dataIn = [{"object_type":"walk","position":"0","data":{"form":"1","price":"1"}}];
+//	InstructionControl.getInstance().getClientInstance().loadData({
+//		'c2': dataIn,
+//		});
+//	expected.push('c2');
+//	this.assertEquals('testJoinInstructionChannel1',JSON.encode(expected),
+//		JSON.encode(client._joined)
+//		);
+//}
+
+function testInitReallyResets() {
+	resetGlobalData();
+	var client = new InstructionClient_NoCommunication({});
+	InstructionControl.getInstance().setClient(client);
+	var blankJson = JSON.encode(InstructionControl);
+	var dataIn = [
+		{"object_type":"walk","position":"0","data":{"form":"0","price":"1"}},
+		{"object_type":"walk","position":"3","data":{"form":"3","price":"1"}},
+		{"object_type":"walk","position":"1","data":{"form":"1","price":"1"}},
+		{"object_type":"walk","position":"2","data":{"form":"2","price":"1"}},
+		{"object_type":"walk","position":"1","data":{"form":"-1","price":"1"}}
+	];
+	InstructionControl.getInstance().bind('zzz','walk',addToGlobalData);
+	InstructionControl.getInstance().getClientInstance().loadData({
+		'zzz': dataIn,
+		});
+	var client = new InstructionClient_NoCommunication({});
+	InstructionControl.getInstance().setClient(client);
+	assertEquals(
+		'testInitReallyResets',
+		JSON.encode(InstructionControl),
+		blankJson
+		);
+}
+
+function testInstructionQueue() {
+	resetGlobalData();
+	var queue = new InstructionQueue();
+	queue.reset = function() { this._position = 0 }
+	
+	/* Check that with only one item with an index of 1, it will not let any processing happen */
+	var i1 = new Instruction('cK','car',{'d':'xxx1'},1);
+	assertTrue('t0',queue.add(i1));
+	assertEquals(
+		'testInstructionQueue (0)',
+		null,
+		queue.getNextForProcessing()
+		);
+	
+	/* Check that when we add the next one, it will let both of them go */
+	var i0 = new Instruction('cK','car',{'d':'xxx0'},0);
+	assertTrue('t1',queue.add(i0));
+	assertEquals(
+		'testInstructionQueue (1)',
+		i0,
+		queue.getNextForProcessing()
+		);
+	assertEquals(
+		'testInstructionQueue (2)',
+		i1,
+		queue.getNextForProcessing()
+		);
+	
+	/* Check that if we add postion 4 then 3 we get a similar queue blocking as with 0 and 1 */
+	var i3 = new Instruction('cK','car',{'d':'xxx3'},3);
+	assertTrue('t2',queue.add(i3));
+	assertEquals(
+		'testInstructionQueue (3)',
+		null,
+		queue.getNextForProcessing()
+		);
+	var i2 = new Instruction('cK','car',{'d':'xxx2'},2);
+	assertTrue('t3',queue.add(i2));
+	assertEquals(
+		'testInstructionQueue (4)',
+		i2,
+		queue.getNextForProcessing()
+		);
+	assertEquals(
+		'testInstructionQueue (4)',
+		i3,
+		queue.getNextForProcessing()
+		);
+	/* Check that if we try and add another item in the place of an existing one it will fail */
+	var i4 = new Instruction('cK','car',{'d':'xxx4'},4);
+	assertTrue('t4',queue.add(i4));
+	assertEquals(
+		'testInstructionQueue (5)',
+		i4,
+		queue.getNextForProcessing()
+		);
+	var i4x = new Instruction('cK','car',{'d':'xxx4x'},4);
+	assertFalse('t5',queue.add(i4x));
+	assertEquals(
+		'testInstructionQueue (6)',
+		null,
+		queue.getNextForProcessing()
+		);
+	/* Check that if we try and go beyond the queue it returns null, but if we 
+	add another Instruction a subsequent call will return it*/
+	assertEquals(
+		'testInstructionQueue (7)',
+		null,
+		queue.getNextForProcessing()
+		);
+	var i5 = new Instruction('cK','car',{'d':'xxx5'},5);
+	assertTrue('t6',queue.add(i5));
+	assertEquals(
+		'testInstructionQueue (8)',
+		i5,
+		queue.getNextForProcessing()
+		);
+}
+
+
+function testNotUsedNumber() {
+	var used = Array(0,1,2,4);
+	assertEquals('testNotNumberUsed3',3,InstructionClient_Ape._notUsedNumber(used,4));
+	var used = Array(1,2,3,4);
+	assertEquals('testNotNumberUsed0',0,InstructionClient_Ape._notUsedNumber(used,4));
+	var used = Array(0,1,2,3);
+	assertEquals('testNotNumberUsed4',4,InstructionClient_Ape._notUsedNumber(used,4));
+	var used = Array(0,1,2,3,4);
+	assertEquals('testNotNumberUsed-1',-1,InstructionClient_Ape._notUsedNumber(used,4));
+}
+
+function testInstructionEvent() {
+	resetGlobalData();
+	var instructionEvent = new InstructionEventProcessor();
+	var pushOne = function(checkData) {
+		assertEquals('testInstructionEvent:pushOne',1,checkData);
+		pushToGlobalData(checkData);
+	};
+	var pushTwo = function(checkData) {
+		assertEquals('testInstructionEvent:pushTwo',2,checkData);
+		pushToGlobalData(checkData);
+	};
+	var pushThree = function(checkData) {
+		assertEquals('testInstructionEvent:pushThree',3,checkData);
+		pushToGlobalData(checkData);
+	};
+	instructionEvent.bind('one',pushOne);
+	instructionEvent.bind('two',pushTwo);
+	instructionEvent.bind('three',pushThree);
+	instructionEvent.fire('one',1);
+	instructionEvent.fire('three',3);
+	instructionEvent.fire('three',3);
+	instructionEvent.fire('three',3);
+	instructionEvent.fire('two',2);
+	instructionEvent.fire('two',2);
+	assertEquals('testInstructionEvent:size',6,getGlobalData().length);
+	var arCountVs = function(ar,seek) {
+		var r = 0;
+		for (var i=0;i<ar.length;i++) {
+			var v = ar[i];
+			if (v == seek) {
+				r = r + 1;
+			}
+		}
+		return r;
+	};
+	assertEquals('testInstructionEvent:c1',1,arCountVs(getGlobalData(),1));
+	assertEquals('testInstructionEvent:c1',2,arCountVs(getGlobalData(),2));
+	assertEquals('testInstructionEvent:c1',3,arCountVs(getGlobalData(),3));
+}
+
+function testPause() {
+	resetGlobalData();
+	var client = new InstructionClient_NoCommunication({});
+	InstructionControl.getInstance().setClient(client);
+	var dataIn = [
+		{"object_type":"walk","position":"0","data":{"form":"0","price":"1"}},
+		{"object_type":"walk","position":"3","data":{"form":"3","price":"1"}},
+		{"object_type":"pause","position":"2","data":{"form":"1","price":"1"}},
+		{"object_type":"walk","position":"1","data":{"form":"-1","price":"1"}}
+	];
+	InstructionControl.getInstance().bind('zzz','walk',addToGlobalData);
+	InstructionControl.getInstance().bind('zzz','pause',function() {
+		InstructionControl.getInstance().pause('zzz');
+	});
+	InstructionControl.getInstance().getClientInstance().loadData({
+		'zzz': dataIn,
+		});
+	assertEquals(
+		'testPause0',        
+		JSON.encode(new Array(dataIn[0],dataIn[3])),
+		JSON.encode(getGlobalData())
+		);
+	InstructionControl.getInstance().resume('zzz');
+	assertEquals(
+		'testPause1',                                    
+		JSON.encode(new Array(dataIn[0],dataIn[3],dataIn[1])),
+		JSON.encode(getGlobalData())
+		);
+}
+
+/**
+ * Not core test
+ */                                                           
+function testFindMovement() {
+	var data = new Array(
+		new Array(
+			{ '0':[1,2,3,4], '1':[5,6,7] },
+			{ '0':[1,3,2,4], '1':[5,6,7] },
+			3,
+			'{"from":"0","to":"0","afterValue":1}'
+		),                              
+		new Array(
+			{ '0':[1,2,3,4], '1':[5,6,7] },
+			{ '0':[1,2,4], '1':[5,3,6,7] },
+			3,
+			'{"from":"0","to":"1","afterValue":5}'
+		),
+		new Array(
+			{ '0':[1,2,3,4], '1':[5,6,7] },
+			{ '0':[1,2,3,6,4], '1':[5,7] },
+			6,
+			'{"from":"1","to":"0","afterValue":3}'
+		),
+		new Array(
+			{ '0':[1,2,3,4], '1':[5,6,7] },
+			{ '0':[1,2,3,4], '1':[6,5,7] },
+			6,
+			'{"from":"1","to":"1","afterValue":-1}'
+		),
+		new Array(
+			{ '0':[1,2,3,4], '1':[5,6,7] },
+			{ '0':[6,1,2,3,4], '1':[5,7] },
+			6,
+			'{"from":"1","to":"0","afterValue":-1}'
+		)
+	);
+	for (var i=0;i<data.length;i++) {
+		var ar1 = data[i][0];
+		var ar2 = data[i][1];
+		var track = data[i][2];
+		var expected = data[i][3];
+		assertEquals(
+			'findMovement('+i+')',
+			expected,
+			JSON.encode(IcPage.findMovement(ar1,ar2,track))
+			);
+	}
+}
+
+
+</script>
+</body>
+</html>

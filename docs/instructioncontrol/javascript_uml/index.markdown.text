@@ -1,0 +1,9 @@
+InstructionControl Javascript Classes
+=====================================
+
+UML Diagram
+-----------
+
+![UML Diagram](../images/javascript_classes_uml.png)
+
+For specifics of all methods/classes please see the [javascript documentation](../jsdoc/)

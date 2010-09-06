@@ -1,0 +1,310 @@
+/*
+Copyright (C) 2010 Matthew Forrester.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+/* == Template CSS ========================================================== */
+
+body {
+	background-color: #F3F3F3;
+}
+
+#template__main {
+	float: left;
+	width: 100%;
+	margin-left: -270px;
+}
+#template__minner {
+	margin-left: 270px;
+	padding:12px 12px 12px 12px;
+	margin-bottom: 100px;
+	display: block;
+}
+#template__rhs {
+	float: right;
+	width: 270px;
+}
+#template__rinner{
+	padding: 12px 12px 12px 12px;
+}
+#template__col {
+	min-height: 100%
+}
+#template__container {
+	display: block; position: absolute; min-height: 100%;
+	background: url('/img/rhsbg.png') repeat-y top right;
+	width:100%;
+}
+#template__content {
+	display: block;
+}
+#template__footer {
+	position: absolute; display: block; bottom: 0; height: 100px;
+	width: 100%;
+	background-color: #BBBBBB;
+	border-top: 3px solid #DDDDDD;
+}
+#template__footer__log {
+	white-space: pre;
+}
+#template__header {
+	background-color: #BBBBBB;
+	border-bottom: solid 3px #AAAAAA;
+	padding: 12px;
+	color: #FFFFFF;
+	font-weight: bold;
+	font-size: 108%;
+}
+#template__footer__credits {
+	display:none;
+}
+
+/* == Rendering of instruction ============================================== */
+
+ul.row li {
+	float: left;
+	white-space:nowrap;
+	line-height: 2em;
+}
+ul.row {
+	border: 1px solid #000000;
+	padding: 4px;
+	display: block;
+	margin: 4px 0px;
+}
+li.instruction span {
+	border: 1px solid #AAAAAA;
+	white-space:nowrap;
+	background-image: url('/rounded.php?shape=r&radius=0&width=2&height=1&foregroundcolor=DDDDDD&borderwidth=0');
+	background-repeat: repeat-y;
+	background-position: top left;
+	padding: 2px 2px 2px 6px;
+	margin: 0px;
+	background-color: #DDDDDD;
+	cursor: move;
+}
+li.instruction span img.icon {
+	padding: 0px 2px 0px 4px; 
+	vertical-align: middle;
+}
+li.cinstruction span {
+	border: 1px solid #AAAAAA;
+	white-space:nowrap;
+	background-image: url('/rounded.php?shape=r&radius=0&width=2&height=1&foregroundcolor=DDDDDD&borderwidth=0');
+	background-repeat: repeat-y;
+	background-position: top left;
+	padding: 2px 2px 2px 6px;
+	margin: 0px;
+	background-color: #DDDDDD;
+	cursor: move;
+}
+li.cinstruction span img.icon {
+	padding: 0px 2px 0px 4px; 
+	vertical-align: middle;
+}
+
+ul.row .adder {
+	padding: 0px 3px;
+}
+
+ul.instruction_row_new {
+	cursor: pointer;
+	height: 2em;
+	border-style: dashed;
+}
+
+ul.instruction_row_new:hover {
+	background-color: #EEEEEE;
+}
+
+/* == Page Application  ===================================================== */
+
+#user_list li {
+	list-style: square inside;
+	padding-left: 5px;
+}
+
+#user_list li span {
+	color: #000000;
+}
+#user_list li a {
+	color: none;
+	font-weight: bold;
+}
+
+/* == Chat area ======= ===================================================== */
+
+ul#chat_history {
+	height: 200px;
+	border: 1px solid;
+	overflow-y: scroll;
+	margin-top: 12px;
+}
+ul#chat_history li {
+	background-repeat: repeat-y;
+	background-position: top left;
+	padding-left: 4px;
+	margin: 2px;
+}
+/* == IcPopup style ========================================================= */
+
+div.popup h1 {
+	font-size: 131%;
+	background-color: #DDDDDD; 
+	padding: 5px;
+}
+div.popup div.footer {
+	padding: 12px;
+	text-align: right;
+}
+div.popup {
+	background-color: #FFFFFF;
+	border: 1px solid #000000;
+}
+div.popup div.detail {
+	padding: 12px;
+}
+
+/* == IcEditUserPopup style ================================================= */
+
+
+/* == IcPopup_Plugin style ================================================== */
+
+div.popup_template_add {
+	width: 680px;
+	background-color: #AAAAFF;
+}
+div.popup_template_add div.select {
+	float:left;
+	margin: 12px;
+	height: 100%;
+}
+div.popup_template_add div.detail_back {
+	background-color:#FFFFFF;
+	margin-left:150px;
+}
+div.popup_template_add div.detail {
+	height: 350px;
+}
+fieldset p {
+	margin: 6px 12px;
+}
+.detail fieldset label {
+	width: 100px;
+	float: left;
+}
+.detail fieldset input.string_type {
+	width: 250px;
+}
+fieldset legend {
+	font-weight: bold;
+}
+fieldset p input {
+	/*vertical-align: middle;*/
+}
+
+/* This float clear method found on http://csscreator.com/attributes/containedfloat.php */
+.newClear:after { content: "."; display: block; height: 0; font-size:0; clear: both; visibility:hidden; }
+.newClear { display: inline-block;}
+* html .newClear { height: 1%;} .floatcontainer{ display:block;}
+
+/* == Preview popup ========================================================= */
+
+div.instructionelement_preview {
+	background-color: #FFFFFF;
+	border-style: solid;
+	border-color: #000000;
+	border-width: 1px;
+}
+div.instructionelement_preview div.header {
+	background-color: #DDDDDD;
+	padding: 6px;
+}
+div.instructionelement_preview div.header h1 {
+	font-weight: bold;
+}
+div.instructionelement_preview div.body {
+	padding: 6px;
+}
+
+div.instructionelement_preview div.footer {
+	padding: 6px;
+}
+
+div.instructionelement_preview div.footer .l {
+	text-align:left;
+	float:left;
+}
+div.instructionelement_preview div.footer {
+	text-align: right;
+}
+
+/* == Credits Popup ========================================================= */
+
+ul#credits {
+	margin: 12px 12px 0px 12px;
+}
+
+/* == Loading Popup ========================================================= */
+
+#box2 {
+	width:200px;
+	background-color: #FFFFFF;
+	height:20px;
+	float:left; 
+}
+#perc2 {
+	background-color: #BBBBBB;
+	height:20px;
+}
+#text {
+	float:left;
+	padding:3px 0 0 10px;
+}
+
+#popup_map_canvas {
+	width: 506px;
+	height: 270px;
+	margin: 12px 0px;
+}
+
+div.popup.inpage {
+	margin-top: 50px;
+	margin-right: auto;
+	margin-left: auto;
+	width: 540px;
+}
+
+div.popup.inpage p {
+	margin: 12px;
+}
+
+div.popup.inpage div.content {
+	height: 340px;
+	display:none;
+}
+
+div.popup.inpage img {
+	border: 1px solid #AAAAAA;
+}
+
+div.popup.inpage div.content#help_content_1 {
+	display:block;
+}
+
+div.popup.inpage input#popup_template_help_show {
+	display:none;
+}

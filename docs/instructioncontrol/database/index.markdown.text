@@ -1,0 +1,45 @@
+# InstructionControl Database Structures 
+
+![Database Diagram](../images/database_structure.png) 
+
+## `channelset` 
+A Channelset in InstructionControl is a grouping of Channels. Channelset stores only one column that is it's name in the column `name`. 
+
+## `channel` 
+Data can be stored within a channel via Instructions. A channel is guaranteed to have it's Instructions processed in order, but there is no guarantee in the order a Channelset will process it's Channels. Channels have a name (`name` column) and belong to a Channelset (`channelset_id`). 
+
+## `instruction` 
+Instruction hold most of the actual data in InstructionControl but is mostly stored in `instruction_data`. This table itself stores the following meta data: 
+
+ * `id` - primary key. 
+ * `object_type` - A data type to an Instruction, picking sensible ObjectTypes will greatly ease the process of developing InstructionControl projects. 
+ * `position` - When the Instruction will be processed by the client. 
+ * `user_id` - The user who created it. 
+
+## `instruction_data` 
+
+`instruction_data` models of an associate array in the database. It's fields are: 
+
+ * `id` - primary key. 
+ * `parent_id` - If `k` and `v` are the first dimension of the associative array it will be null, if it is a child of other key it will be the `id` of it's parent. 
+ * `instruction_id` - references the `id` from `instruction`. 
+ * `k` - The key of a key/value pair 
+ * `v` - The value of a key/value pair 
+ * `extra` - if the data of an associative array will not fit in `v` this will be `1` and it's data will be stored in `instruction_data_extra`, otherwise it will be `0`. 
+
+## `instruction_data_extra` 
+
+This is an overflow table for `instruction_data`. The column `instruction_data_id` references the row in `instruction_data` which has overflowed. The `v` column will be _all_ the data that is at that element. 
+
+## `user` 
+
+Users are stored in the `user` table. It's fields are 
+
+ * `communication_key` - This will be shared with other users in a `channelset`, it uniquely identifies a user. 
+ * `login_key` - This column does also uniquely identify a user, however it will never (and should never) be shared with other users, it is anticipated that this could be used to log in as that user a second time, or as a foreign key if InstructionControl is part of a larger system. 
+ * `known_as` - This is a property of a user, it is in no way required but can be easily modified by the user, update will be broadcast to other clients. 
+ * `color` - This is a property of a user, it is in no way required but can be easily modified by the user, update will be broadcast to other clients. 
+
+## `user_channelset` 
+
+Identifies which `channelset` a `user` has been in. The columns `channelset_id` and `user_id` and foreign keys to `channelset` and `user`.

@@ -1,0 +1,266 @@
+Instruction Control Hello World
+===============================
+
+Configuring your  LAMP development environment
+----------------------------------------------
+
+### Installation
+
+Before you do anything else you need to have a full working PHP/MySQL and web server environment. This can be accomplished on most types of operating systems however the instructions here are for Ubuntu Lucid.
+
+Within a terminal (you can get to a terminal in the desktop version by selecting Applications > Accessories > Terminal) type the following:
+
+	me@machine:~ $ sudo apt-get install apache2 php5 mysql-server php5-cli php5-mysql mysql-client
+
+You will be asked to enter a MySQL root password, make sure you remember it! For the purposes of this documentation I entered the password 'mypw'.
+
+### Testing your MySQL database configuration
+
+Create a new database with a specific user to access icHelloWorld:
+
+	me@machine:~ $ echo "CREATE DATABASE ichelloworld CHARACTER SET utf8 DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci DEFAULT COLLATE utf8_general_ci;" | mysql -uroot -pmypw
+	me@machine:~ $ echo "CREATE USER 'ichelloworld'@'localhost' IDENTIFIED BY 'ichw';" | mysql -uroot -pmypw
+	me@machine:~ $ echo "GRANT ALL PRIVILEGES ON ichelloworld.* to 'ichelloworld'@'localhost' WITH GRANT OPTION;" | mysql -uroot -pmypw
+	me@machine:~ $ echo "CREATE USER 'ichelloworld'@'%' IDENTIFIED BY 'ichw';" | mysql -uroot -pmypw
+	me@machine:~ $ echo "GRANT ALL PRIVILEGES ON ichelloworld.* to 'ichelloworld'@'%' WITH GRANT OPTION;" | mysql -uroot -pmypw
+
+Now test that the new user can create and access the database:
+
+	me@machine:~ $ mysql -uichelloworld -pichw ichelloworld
+	mysql> create table x (id int, w varchar(255));
+	Query OK, 0 rows affected (0.07 sec)
+
+	mysql> show tables;
+	+------------------------+
+	| Tables_in_ichelloworld |
+	+------------------------+
+	| x                      |
+	+------------------------+
+	1 row in set (0.00 sec)
+	
+	mysql> insert into x (id,w) values (1,'hi there');
+	Query OK, 1 row affected (0.00 sec)
+	
+	mysql> select * from x;
+	+------+----------+
+	| id   | w        |
+	+------+----------+
+	|    1 | hi there |
+	+------+----------+
+	1 row in set (0.00 sec)
+	
+	mysql> drop table x;
+	Query OK, 0 rows affected (0.00 sec)
+	
+	mysql> exit;
+
+### Setting up hostname
+
+When you request a page within a web browser, a part of that is known as the domain name, this comes between `http://` and the first `/` after this. Often this is resolved by a DNS server, but for development, prior to release you can probably avoid going through all the work of configuring that and just add a domain name to your "hosts file", which is consulted before the DNS server.
+
+Adding a hostname to a `/etc/hosts` file:
+
+	me@machine:~ $ echo "127.0.0.1    ichelloworld.mynetwork.com    ichelloworld" | sudo tee -a /etc/hosts	
+
+You can test that this has been done correctly by issuing the following command:
+
+	me@machine:~ $ ping -c1 ichelloworld.mynetwork.com 
+	PING ichelloworld.mynetwork.com (127.0.0.1) 56(84) bytes of data.
+	64 bytes from localhost (127.0.0.1): icmp_seq=1 ttl=64 time=0.060 ms
+
+### Setting up Apache to handle HTTP requests for your ichelloworld.com domain
+
+Thankfully configuring Apache is also relatively straight forward, the first step is to configure it to respond to requests to your ichelloworld.mynetwork.com domain.
+
+In Ubuntu Apache is configured primarily by placing files in /etc/apache2/sites-available as follows:
+
+	me@machine:~ $ sudo touch /etc/apache2/sites-available/ichelloworld
+
+This file should contain the following lines:
+	
+	me@machine:~ $ echo '<VirtualHost *:80>' | sudo tee -a /etc/apache2/sites-available/ichelloworld
+	me@machine:~ $ echo "DocumentRoot \"/home/${USER}/ichelloworld/public\"" | sudo tee -a /etc/apache2/sites-available/ichelloworld
+	me@machine:~ $ echo 'ServerName ichelloworld.mynetwork.com'  | sudo tee -a /etc/apache2/sites-available/ichelloworld 
+	me@machine:~ $ echo '</VirtualHost>' | sudo tee -a /etc/apache2/sites-available/ichelloworld
+
+You will also need to "symlink" this file into `/etc/apache2/sites-enabled` by issuing the following command:
+
+	me@machine:~ $ sudo ln -s /etc/apache2/sites-available/ichelloworld /etc/apache2/sites-enabled/ichelloworld
+
+Create a directory for your icHelloWorld project and then restart the Apache web server:
+
+	me@machine:~ $ mkdir -p ~/ichelloworld/public
+	me@machine:~ $ echo 'hi there' > ~/ichelloworld/public/index.php
+	me@machine:~ $ sudo /etc/init.d/apache2 restart
+
+Now go in your web browser to [http://ichelloworld.mynetwork.com](http://ichelloworld.mynetwork.com) and you should see a single page saying "hi there". Congratulations you now have a full PHP/Apache/MySQL development environment!
+
+Installation of InstructionControl
+----------------------------------
+
+### Installing the Libraries
+
+Download the latest version of InstructionControl from [http://instructcontrol.berlios.de/download](http://instructcontrol.berlios.de/download) and extract it into /home/me/ichelloworld.
+
+### Preparing the database
+
+InstructionControl expects certain tables to be set up, for logging of data and controlling the order which Instruction are sent to the clients. To do this run:
+
+	me@machine:~ $ cat ~/ichelloworld/docs/instructioncontrol/database_structure.mysql | mysql -uichelloworld -pichw ichelloworld
+
+Your database should now look something like the following:
+
+	me@machine:~ $ mysql -uichelloworld -pichw ichelloworld
+	mysql> show tables;
+	+------------------------+
+	| Tables_in_ichelloworld |
+	+------------------------+
+	| _channelset_users      |
+	| _overall_view          |
+	| channel                |
+	| channelset             |
+	| instruction            |
+	| instruction_data       |
+	| instruction_data_extra |
+	| user                   |
+	| user_channelset        |
+	+------------------------+
+	9 rows in set (0.00 sec)
+
+### Testing Local "JustMe" InstructionControl
+
+InstructionControl comes with two "Client" mechanisms currently, these are "JustMe" and "APE". JustMe is simple, quick and easy for development, but it does not have any client-client communication, it is only single user. The APE client is more work to set up but any messages you send to InstructionControl will also be sent to all other clients, giving you the ability to create an effective screen syncing / collaboration environment.
+
+We will get onto configuring InstructionControl to use an APE server (as well as setting up the server itself) shortly, but first we should check test what we have done already! Point your browser at [http://ichelloworld.mynetwork.com/ichelloworld.php](http://ichelloworld.mynetwork.com/ichelloworld.php) and you should be greeted by a plain looking HTML page with just a textbox and a button saying "talk". Write "hello world" in the textbox and press the button and what you wrote should appear above. This may seem very underwhelming, but what did you expect from a HelloWorld example!
+
+Lets first verify that everything is working as it should. if you refresh the page what you wrote should re-appear, leaving you with exactly the same screen as before. You should also take a look into the database as well where you should have something similar to this:
+
+	mysql> select * from _overall_view;
+	+--------------+--------------------+--------------+----------+-------------+---------+---------------+
+	| channelset   | name               | login_key    | position | object_type | k       | v             |
+	+--------------+--------------------+--------------+----------+-------------+---------+---------------+
+	| g4c668a55734 | browser_to_browser | g4c667b436a1 |        0 | helloworld  | message | hello world   |
+	+--------------+--------------------+--------------+----------+-------------+---------+---------------+
+	1 rows in set (0.01 sec)
+
+There are a few components to this:
+
+ * The `channelset` should the last part part of the URL that is now in your browser, this should be unique and not guessable, publishing a URL will lead to people being able see the same page as you.
+ * The `name` is the name of a channel, within a channel we guarantee ordered execution.
+ * The `login_key` is stored against every website visitor, using this it should be possible to allow a user to resume.
+ * The values in the `position` column count up from 0 and are the order which the client side javascript will process them.
+ * Instruction have an ObjectType which is stored within the `object_type` column. The javascript can listen for all or one ObjectType within a given Channel.
+ * Columns `k` and `v` are the information that the Javascript sent to the server.
+
+Note: that `_overall_view` is, as the name would suggest a MySQL VIEW, not a table and will only show the first dimension of `k` and `v`. For an explanation of how data is actually stored within the database please see the [database structure](../database) documentation 
+
+### Setting up InstructionControl with the APE client
+
+InstructionControl uses APE to enable inter-client communication, if you need this feature, you need APE!
+
+#### Installation of APE
+
+While doing work with APE I recommend using Firebug on FireFox. I __really__ like Chrome nowadays and I do have admit that it's development tools are getting better, but currently it only shows AJAX requests when they are complete, yet APE uses long lived connections for instant notification, so you can't see them in Chrome!
+
+##### APE Server
+
+Installation of APE should be relatively simple because the nice people over there provide packages for Debian based Linux distributions such as Ubuntu as well as others. First grab a copy of APE from [http://www.ape-project.org/download/APE_Server.html](http://www.ape-project.org/download/APE_Server.html). You will probably want APE_Server-1.0.i386.deb although there is an AMD64 version too.
+
+Once this is downloaded you must install it, because this is Ubuntu it's relatively simple, all you need to do is type:
+	
+	me@machine:~ $ sudo dpkg -i ~/Downloads/APE_Server-1.0.i386.deb
+
+Obviously replace ~/Downloads with where you downloaded the file.
+
+Note: If you are running the most recent version of Ubuntu (Lucid at the time of writing) you may find you are missing the dependency libmysqlclient15off and no amount of `apt-get install` will get you it... To solve this I did the obvious thing and installed a version from Karmic which I found at [http://packages.ubuntu.com/karmic/libmysqlclient15off](http://packages.ubuntu.com/karmic/libmysqlclient15off).
+
+##### APE Javascript Framework
+
+Installation of the APE JSF is also simple go to [http://www.ape-project.org/download/APE_JavaScript_Framework.html](http://www.ape-project.org/download/APE_JavaScript_Framework.html) and download ape-jsf-1.0.tar.gz. Now extract the file into your "public" directory by typing the following:
+
+	me@machine:~ $ cd ~/ichelloworld/public
+	me@machine:~ $ tar -zxf ~/Downloads/ape-jsf-1.0.tar.gz
+
+Obviously replace ~/Downloads with where you downloaded the file.
+
+##### Configuring APE
+
+APE requires extra host names to operate. These take the form `N.ape.yoursever.com` where 'N' is a number beginning from 0. You will therefore need to add these names to your `/etc/hosts` file like so:
+	
+	me@machine:~ $ echo '' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1    ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  0.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  1.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  2.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  3.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  4.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  5.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  6.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  7.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  8.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	me@machine:~ $ echo '127.0.0.1	  9.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/hosts 
+	
+You will also need to configure an Apache virtual host for these names:
+
+	me@machine:~ $ sudo touch /etc/apache2/sites-available/ape.ichelloworld
+	me@machine:~ $ echo '<VirtualHost *:80>' | sudo tee -a /etc/apache2/sites-available/ape.ichelloworld
+	me@machine:~ $ echo "DocumentRoot \"/home/${USER}/ichelloworld/public\"" | sudo tee -a /etc/apache2/sites-available/ape.ichelloworld
+	me@machine:~ $ echo 'ServerName ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/apache2/sites-available/ape.ichelloworld
+	me@machine:~ $ echo 'ServerAlias ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/apache2/sites-available/ape.ichelloworld
+	me@machine:~ $ echo 'ServerAlias *.ape.ichelloworld.mynetwork.com' | sudo tee -a /etc/apache2/sites-available/ape.ichelloworld
+	me@machine:~ $ echo '</VirtualHost>' | sudo tee -a /etc/apache2/sites-available/ape.ichelloworld
+	me@machine:~ $ sudo ln -s /etc/apache2/sites-available/ape.ichelloworld /etc/apache2/sites-enabled/ape.ichelloworld
+	me@machine:~ $ sudo /etc/init.d/apache2 restart
+
+Update the configuration for APE found at ~/ichelloworld/public/ape-jsf/Demos/config.js:
+
+	me@machine:~ $ cd ~/ichelloworld/public/ 
+	me@machine:~ $ php -r 'echo str_replace("local.ape-project.org","ichelloworld.mynetwork.com",file_get_contents("ape-jsf/Demos/config.js"));' > /tmp/ape_config
+	me@machine:~ $ mv /tmp/ape_config ape-jsf/Demos/config.js 
+
+Now check your APE configuration by going to [http://ichelloworld.mynetwork.com/ape-jsf/Tools/Check/](http://ichelloworld.mynetwork.com/ape-jsf/Tools/Check/) and clicking "Launch test!".
+
+If it finishes with the message "All test done. Now you can play with your APE \o/" your installation was successful.
+
+If you have Firebug open you should see the following:
+
+![APE with Firebug](../images/ape_in_action.png)
+
+#### Configuration of InstructionControl to use APE
+
+Firstly, the code that you write will be virtually identical whether you are using the "JustMe" or "Ape" client. You can quite happily write code in either and it will be fully compatible with the other. There are however some tiny modifications that will need to be done.
+
+##### PHP Configuration
+
+Edit `~/ichelloworld/config/ichelloworld.defines.php` and find the line:
+
+	define('INSTRUCTIONCONTROL__NOTIFY_OTHER_CLIENTS','JUSTME');
+
+You will need to change this to:
+	
+	define('INSTRUCTIONCONTROL__NOTIFY_OTHER_CLIENTS','APE');
+
+##### Javacript Configuration
+
+Edit `~/ichelloworld/public/helloworld.php` and find the lines:
+	
+	// lowLevelConfigApe()
+	var client = new InstructionClient_JustMe(
+		<?php echo json_encode($config['channelset']['name']); ?>,
+		<?php echo json_encode($user['communication_key']); ?>,
+
+Change them to:
+	
+	lowLevelConfigApe()
+	var client = new InstructionClient_Ape(
+		<?php echo json_encode($config['channelset']['name']); ?>,
+		<?php echo json_encode($user['communication_key']); ?>,
+
+You also need to uncomment the third script line earlier in the file:
+
+	<!-- <script type="text/javascript" src="<?php echo $config['ape']['jsf']['root']; ?>/Clients/JavaScript.js"></script> -->
+
+
+#### Testing InstructionControl with APE
+
+You should now be able to go back to [http://ichelloworld.mynetwork.com/ichelloworld.php](http://ichelloworld.mynetwork.com/ichelloworld.php) and interact with the page, the difference now is that instead of the client responding to the responses from PHP, it will be responding to APE RAW's which means that it is broadcast across all clients using the same URL!

@@ -1,0 +1,23 @@
+<div id="popup_edituser" class="popup popup_edituser">
+	<h1>Edit User</h1>
+	<div class="detail">
+		<fieldset>
+		<p>
+			<label for="popup_edituser__user_known_as">Known As:</label>
+			<input type="text" id="popup_edituser__user_known_as"
+				name="user_known_as" value="" maxlength="255"/>
+		</p>
+		<p>
+			<label for="popup_edituser__user_color">Color:</label>
+			<select name="user_color" id="popup_edituser__user_color"
+				value='#DDDDDD' style="background-color:#FF0000">
+			</select>
+		</p>
+		</fieldset>
+	</div>
+	<div class="footer">
+		<span id="status_area" style="float:left"></span>
+		<input type="submit" value="cancel" id="popup_edituser__submit_cancel"/>
+		<input type="submit" value="ok" id="popup_edituser__submit_ok"/>
+	</div>
+</div>

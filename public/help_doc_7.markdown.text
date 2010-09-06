@@ -1,0 +1,4 @@
+This demo is not using InstructionClient_Ape
+============================================
+
+I need APE installed on the server for multi-client usage, but this is currently this is hosted on berlios.de which would certainly not support this. So for now this demo is running the "JustMe" client, so does not support multiple clients.

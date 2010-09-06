@@ -1,0 +1,66 @@
+What is InstructionControl?
+===========================
+
+The Problem
+-----------
+
+We're all aware that we can put real time chat onto a web page, often these may poll the server for updates, sometimes they will involve an element of Flash to do a form of TCP/IP sockets, or maybe an IRC server, this is old school.
+
+You may have recently seen the superb [Etherpad](http://www.etherpad.com) that was recently bought and open sourced by Google, this uses a new type of system to dynamically notify users of changes called a Comet server which is basically a long-lived HTTP request that is held open and when the server has something that it wants to send back it already has an open channel ready for transmission. Combining this was an AJAX method on a page and you can have near-instant page updates.
+
+How Does InstructionControl Solve This Problem
+------------------------------------------------
+
+### Goals
+
+My main aim was to be able run multi-user applications that actually do something which could be part of a business process on a web page.
+
+### Problems
+
+The problems I foresaw to doing this was that I would need to have a complete log of every request and to ensure that the order of screen updates was maintained across all clients to prevent screens becoming out of sync.
+
+### How?
+
+The one component that is shared between all the clients is the server, so if we want to maintain order it has to be done on the server. It is probably a queue based system with the queue being stored primarily within the database.
+
+To notify other users when things are added to the queue changes need to be broadcast to all clients, which is where the Comet server comes in.
+
+Because we still cannot fully control when clients will receive these updates the clients must also include a form of internal execution queue and be able to intelligently not execute instructions until all previous instructions have been executed.
+
+In Detail
+---------
+
+### Structures
+
+ * Channelset - A Channelset is a collection of Channel, a single user may have communicated with multiple Channelset, however they can not do so in the same session.
+ * Channel - Channels are basically queues of Instruction, Instruction within a channel will be executed in order, however there is no defined order in which channelsets will be ran.
+ * Instruction - Instructions can be inserted into Channel and that new Instruction will be broadcast to all other User on that Channelset. Instructions themselves have a Type, a Position and Data which is a multi-dimensional array. 
+ 	
+![Structures](../images/structures.png)
+
+### The RESTful Web Service / Classes
+
+The RESTful web service is there to store new information and communicate  between clients.
+
+### The Javascript Classes
+
+The [Javascript classes](../javascript_uml) are a small(ish), event/callback driven, easy to understand means of both adding Instruction to the RESTful Web Service and responding to new Instruction, probably coming from the APE server. It is an event driven API.
+
+### The APE Server
+
+The APE server handles notifications between multiple clients and is listened to by the Javascript classes, and spoke to be the RESTful web service.
+
+### Overall Process Flow
+
+Because this project includes three completely separate components, documenting either of them will give a proper reflection on how the actual system functions as a whole. Therefore I have decided to draw up an overall process flow diagram:
+
+![InstructionClient Flow Diagram](../images/instruction_process_flow.png)
+
+This takes the following stages:
+
+ * The application logic would call `InstructionControl.getInstance().send(channel,objecttype,data)` [1] which would then be passed onto the InstructionClient [2] for transmission via AJAX to the Page/Router [3].
+ * The Page/Router would allocate a Position for the Instruction [4] and then go about storing that information within the database [5].
+ * When the data has been stored within the database it will generate a standard return document for transmission to the client(s) [6].
+ * The Page/Router can be configured to either send responses through the APE server to allow a multi-client system to be developed [7], or alternatively just to send the response in an AJAX request [8]. Either way the result will be received by InstructionClient [9].
+ * The InstructionClient will put the Instruction into a queue within InstructionControl [10] which will cause InstructionControl to try and process the Instruction [11].
+ * It may be that all the previous Instruction have not yet been processed, in which case it will wait till they are available and process them in order [12], but if it is ready it will be processed immediately [13].
