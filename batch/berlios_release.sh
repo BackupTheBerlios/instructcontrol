@@ -31,7 +31,7 @@ cat config/icdemo.defines.php | sed 's|mysql:host=localhost;dbname=icdemo|mysql:
 mv t.txt config/icdemo.defines.php
 cat config/icdemo.defines.php | sed "s|'INSTRUCTIONCONTROL__PDO_DATABASE_USERNAME','icdemo'|'INSTRUCTIONCONTROL__PDO_DATABASE_USERNAME','instructcontrol'|" > t.txt
 mv t.txt config/icdemo.defines.php
-cat config/icdemo.defines.php | sed "s|'INSTRUCTIONCONTROL__PDO_DATABASE_PASSWORD','icdemo'|'INSTRUCTIONCONTROL__PDO_DATABASE_USERNAME','${MYSQL_PASSWORD}'|" > t.txt
+cat config/icdemo.defines.php | sed "s|'INSTRUCTIONCONTROL__PDO_DATABASE_PASSWORD','icdemo'|'INSTRUCTIONCONTROL__PDO_DATABASE_PASSWORD','${MYSQL_PASSWORD}'|" > t.txt
 mv t.txt config/icdemo.defines.php
 
 mv docs/ public/
