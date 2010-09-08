@@ -69,7 +69,11 @@ class InstructionControl_DbFunctions_NonPdo {
 	private function pdoPrepare($sql,$params) {
 		$eParams = array();
 		foreach ($params as $k=>$v) {
-			$eParams[$k] = "'".mysql_real_escape_string($v,$this->dbh)."'";                       
+			if ($v !== null) {
+				$eParams[$k] = "'".mysql_real_escape_string($v,$this->dbh)."'";
+			} else {
+				$eParams[$k] = 'NULL';
+			}
 		}
 		$q = str_replace(
 			array_keys($eParams),
