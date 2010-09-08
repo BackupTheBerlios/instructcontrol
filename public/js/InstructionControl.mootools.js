@@ -1867,7 +1867,7 @@ InstructionControl.getInstance().bindClientReady(function() {
 	
 	document.ondragstart =  function() { return false; };
 	
-	IcPage.loading.progress = new ProgressBar({
+	IcPage.loading.progress = new dwProgressBar({
 		container: $('loading_channels'),
 		startPercentage: 0,
 		speed:1,
