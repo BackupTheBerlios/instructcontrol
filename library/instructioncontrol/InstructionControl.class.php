@@ -48,6 +48,97 @@ function genSaneGuid() {
  */
 class InstructionControl_Exception extends Exception {}
 
+class InstructionControl_DbFunctions_NonPdo {
+	
+	public function __construct($connectionString,$username,$password,$pdoAttributes) {
+		
+		if (!preg_match('/host=([^;]+)/',$connectionString,$matches)) {
+			throw new InstructionControl_Exception('Could not find DB Host '.$connectionString);
+		}
+		$host = $matches[1];
+		if (!preg_match('/dbname=([^;]+)/',$connectionString,$matches)) {
+			throw new InstructionControl_Exception('Could not find DB Host '.$connectionString);
+		}
+		$dbName = $matches[1];
+		$conn = mysql_connect($host,$username,$password);
+		mysql_select_db($dbName,$conn);
+		$this->dbh = $conn;
+		mysql_query("SET NAMES 'utf8' COLLATE 'utf8_general_ci'",$conn);
+	}
+	
+	private function pdoPrepare($sql,$params) {
+		$eParams = array();
+		foreach ($params as $k=>$v) {
+			$eParams[$k] = "'".mysql_real_escape_string($v,$this->dbh)."'";                       
+		}
+		$q = str_replace(
+			array_keys($eParams),
+			array_values($eParams),
+			$sql
+			);
+		#print_r($eParams);
+		#print_r($sql);
+		#echo $q;
+		#echo "===============";
+		return $q;
+	}
+	
+	/**
+	 * Performs a SELECT on the database, returning the results as an associative array.
+	 *
+	 * @param string $sql Sql to execute, parameters should be in the form :[key].
+	 * @param array $params Associative array containing parameters, keys should
+	 *	be the same as the ones from $sql.
+	 * @return array Associative array of results.
+	 */
+	public function pdoGetResults($sql,$params) {
+		$q = $this->pdoPrepare($sql,$params);
+		$r = array();
+		$qResult = mysql_query($q,$this->dbh);
+		if ($qResult === false) {
+			throw new InstructionControl_Exception("Error executing query $q");
+		}
+		while ($row = mysql_fetch_assoc($qResult)) {
+			$r[] = $row;
+		}
+		#echo $q.print_r($r,1);
+		return $r;
+	}
+	/**
+	 * Executes an INSERT SQL statement, returning the last inserted id
+	 *
+	 * @param string $sql Sql to execute, parameters should be in the form :[key].
+	 * @param array $params Associative array containing parameters, keys should
+	 *	be the same as the ones from $sql.
+	 * @return int The last inserted id.
+	 */
+	public function pdoInsert($sql,$params) {
+		$q = $this->pdoPrepare($sql,$params);
+		$qResult = mysql_query($q,$this->dbh);
+		if ($qResult === false) {
+			throw new InstructionControl_Exception("Error executing query $q");
+		}
+		$r = mysql_insert_id($this->dbh);
+		#echo "[$q]";
+		#echo "[$r]";
+		return $r;
+	}
+	/**
+	 * Executes an UPDATE SQL statement
+	 *
+	 * @param string $sql Sql to execute, parameters should be in the form :[key].
+	 * @param array $params Associative array containing parameters, keys should
+	 *	be the same as the ones from $sql.
+	 */
+	public function pdoUpdate($sql,$params) {
+		$q = $this->pdoPrepare($sql,$params);
+		$qResult = mysql_query($q,$this->dbh);
+		if ($qResult === false) {
+			throw new InstructionControl_Exception("Error executing query $q");
+		}
+	}
+}
+
 /**
  * Simple database (PDO/MySQL) access class.
  *
@@ -217,6 +308,7 @@ class InstructionControl {
 	 * @return int $id The Id.
 	 */
 	public static function getChannelId($channelsetId,$channelName) {
+		#print_r(array($channelsetId,$channelName));
 		foreach (self::getDbFunctionsInstance()->pdoGetResults('
 			SELECT
 				channel.id
@@ -225,15 +317,15 @@ class InstructionControl {
 			WHERE channel.name = :channelname
 				AND channelset_id = :channelsetid
 			',
-			array(':channelname'=>$channelName,'channelsetid'=>$channelsetId)
+			array(':channelname'=>$channelName,':channelsetid'=>$channelsetId)
 			) as $row) {
 			return $row['id'];
 		}
 		return self::getDbFunctionsInstance()->pdoInsert(
-			'INSERT INTO channel (channelset_id,name) VALUES (:channelsetid,:name)',
-			array(':name'=>$channelName,'channelsetid'=>$channelsetId));
+			'INSERT INTO channel (channelset_id,name) VALUES (:channelset_id,:name)',
+			array(':name'=>$channelName,':channelset_id'=>$channelsetId));
 	}
-		/**
+		/**                                
 	 * Actually adds Data to an Instruction.
 	 *
 	 * When you have reserved an Instruction Id you can add Data to it, this can
@@ -253,7 +345,7 @@ class InstructionControl {
 		// Build up a huge assoc array so we can do a big join insert (this is
 		// for only one level, we will call this function recursively to add 
 		// lower levels
-		$params = array('instruction_id'=>$instructionId);
+		$params = array(':instruction_id'=>$instructionId);
 		$i = 0;
 		$sqlv = array();
 		$unset = array();
@@ -261,9 +353,9 @@ class InstructionControl {
 			if (is_scalar($v)) {
 				if (mb_strlen($v,'8bit') <= INSTRUCTIONCONTROL_MAX_MAIN_DATA_LENGTH) // if it's short enough to just store
 				{
-					$params['k'.$i] = $k;
-					$params['v'.$i] = $v;
-					$params['p'.$i] = $parentId;
+					$params[':k'.$i] = $k;
+					$params[':v'.$i] = $v;
+					$params[':p'.$i] = $parentId;
 					$sqlv[] = sprintf('(:instruction_id,:k%d,:v%d,:p%d)',$i,$i,$i);
 					$i++;
 					$unset[] = $k;
@@ -272,12 +364,12 @@ class InstructionControl {
 					$instructionDataId = self::getDbFunctionsInstance()->pdoInsert('
 						INSERT INTO instruction_data (instruction_id,k,v,parent_id,extra)
 						VALUES (:instruction_id,:k,:v,:parent_id,1)',
-						array('instruction_id'=>$instructionId,'k'=>$k,'v'=>$v,
-							'parent_id'=>$parentId));
+						array(':instruction_id'=>$instructionId,':k'=>$k,':v'=>$v,
+							':parent_id'=>$parentId));
 					self::getDbFunctionsInstance()->pdoInsert('
 						INSERT INTO instruction_data_extra (instruction_data_id,v)
 						VALUES (:instruction_data_id,:v)',
-						array('instruction_data_id'=>$instructionDataId,'v'=>$v));
+						array(':instruction_data_id'=>$instructionDataId,':v'=>$v));
 					$unset[] = $k;
 				}
 			}
@@ -292,7 +384,7 @@ class InstructionControl {
 		foreach ($data as $k=>$v) {
 			$parentId = self::getDbFunctionsInstance()->pdoInsert('
 				INSERT INTO instruction_data (instruction_id,k,parent_id) 
-				VALUES (:i,:k,:p)',array('i'=>$instructionId,'k'=>$k,'p'=>$parentId));
+				VALUES (:i,:k,:p)',array(':i'=>$instructionId,':k'=>$k,':p'=>$parentId));
 			self::_addInstructionData($instructionId,$v,$parentId);
 			$parentId = null;
 		}
@@ -445,8 +537,8 @@ class InstructionControl {
             // otherwise we need to create a new record
             $loginKey = genSaneGuid();
             $communicationKey = genSaneGuid();
-            $insertData = array('login_key'=>$loginKey,
-                'communication_key'=>$communicationKey,'known_as'=>$knownAs);
+            $insertData = array(':login_key'=>$loginKey,
+                ':communication_key'=>$communicationKey,':known_as'=>$knownAs);
             $id = self::getDbFunctionsInstance()->pdoInsert('
                 insert into user (login_key,communication_key,known_as)
                 values (:login_key,:communication_key,:known_as)
@@ -456,9 +548,9 @@ class InstructionControl {
         }
         // If known_as is different from what was passed in, sync it
         if (($knownAs) && ($user['known_as'] != $knownAs)) {
-            $stmt = InstructionControl::getDbFunctionsInstance()->pdoPrepare('
+            $stmt = InstructionControl::getDbFunctionsInstance()->pdoUpdate('
                 update user set known_as = :ka where id = :id
-                ',array('ka'=>$knownAs,'id'=>$user['id'])
+                ',array(':ka'=>$knownAs,':id'=>$user['id'])
                 );
             $stmt->execute();
             $user['known_as'] = $knownAs;
@@ -509,7 +601,7 @@ class InstructionControl {
             WHERE
                 user.id = :uid AND channelset.id = :cid
                 AND user_channelset.user_id is null;
-            ',array('uid'=>$userId,'cid'=>$channelsetId));
+			',array(':uid'=>$userId,':cid'=>$channelsetId));
 	}
     /**
      * Will return all User for a specific ChannelSet.
@@ -646,12 +738,12 @@ class InstructionControl {
 	 */
 	public static function getChannelsetId($name) {
 		foreach (self::getDbFunctionsInstance()->pdoGetResults('SELECT id FROM channelset WHERE name = :name',
-			array('name'=>$name)) as $row) {
+			array(':name'=>$name)) as $row) {
 			return $row['id'];
 		}
 		return self::getDbFunctionsInstance()->pdoInsert('
 			INSERT INTO channelset (name) values (:name)',
-			array('name'=>$name)
+			array(':name'=>$name)
 			);
 	}
 	
@@ -665,7 +757,7 @@ class InstructionControl {
 		$r = array();
 		foreach(self::getDbFunctionsInstance()->pdoGetResults('
 			SELECT id FROM channel where channelset_id = :cs ORDER BY id ASC',
-			array('cs'=>$channelsetId)
+			array(':cs'=>$channelsetId)
 			) as $row) {
 			$r[] = $row['id'];
 		}
