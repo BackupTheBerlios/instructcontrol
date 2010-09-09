@@ -296,10 +296,12 @@ class InstructionControl_Utils_Controller
 	 *	will be all columns in the `user` table.
 	 */
 	private function _getUser_registerUser($channelsetId) {
+		InstructionControl::startTransaction();
 		if ($u = InstructionControl::getUser()) {
 			InstructionControl::setUserChannelset($u['id'],$channelsetId);
 			$this->setSessionVariable('USER_LOGIN_KEY',$u['login_key']);
 		}
+		InstructionControl::completeTransaction();
 		return $u;
 	}
 	
@@ -481,7 +483,7 @@ class InstructionControl_Utils_Controller
 	 * Allows a user to update his/her user details
 	 *
 	 * @param array $params Is expected to have the following parameters: 
-	 * 	`array('channelset'=>'name of channel','details'=>array('k'=>'v pairs'))`
+	 * 	`array('channelset'=>'name of channelset','details'=>array('k'=>'v pairs'))`
 	 * @see InstructionControl_Utils_Controller::restGetChannelsetUserCommunicationkey()
 	 *	for details about the output document
 	 */
@@ -520,6 +522,7 @@ class InstructionControl_Utils_Controller
 	 *	`array('channelset'=>'name','channel'=>'name','object_type'=>'type of object','data'=>array('k'='v pairs'))
 	 */
 	public function restPostChannelsetChannel($params) {
+		InstructionControl::startTransaction();
 		$channelsetId = $this->getChannelSetId($params['channelset']);
 		$userRec = $this->getUser($channelsetId);
 		$channelId = InstructionControl::getChannelId($channelsetId,$params['channel']);
@@ -530,6 +533,7 @@ class InstructionControl_Utils_Controller
 			);
 		$data = array_key_exists('data',$_REQUEST) ? $_REQUEST['data'] : array();
 		InstructionControl::addInstructionData($instructionId,$data);               
+		InstructionControl::completeTransaction();
 		$position = InstructionControl::getPositionForInstructionId($instructionId);
 		$return = InstructionControl::generateReturnDocument(
 			'INSTRUCTION',

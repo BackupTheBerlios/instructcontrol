@@ -56,7 +56,7 @@ class InstructionControl_Exception extends Exception {}
  * @see InstructionControl_DbFunctions
  * @package InstructionControl
  */
-class InstructionControl_DbFunctions_NonPdo extends InstructionControl_DbFunctions {
+class InstructionControl_DbFunctions_NonPdo implements InstructionControl_DbFunctions {
 	
 	public function __construct($connectionString,$username,$password,$pdoAttributes) {
 		if (!preg_match('/host=([^;]+)/',$connectionString,$matches)) {
@@ -73,6 +73,14 @@ class InstructionControl_DbFunctions_NonPdo extends InstructionControl_DbFunctio
 		mysql_query("SET NAMES 'utf8' COLLATE 'utf8_general_ci'",$conn);
 	}
 	
+	/**
+	 * Prepares a statement with parameters pre-binded.
+	 *
+	 * @param string $sql Sql to execute, parameters should be in the form :[key].
+	 * @param array $params Associative array containing parameters, keys should
+	 *	be the same as the ones from $sql.
+	 * @return PDOStatement.
+	 */
 	private function pdoPrepare($sql,$params) {
 		$eParams = array();
 		foreach ($params as $k=>$v) {
@@ -114,8 +122,6 @@ class InstructionControl_DbFunctions_NonPdo extends InstructionControl_DbFunctio
 			throw new InstructionControl_Exception("Error executing query $q");
 		}
 		$r = mysql_insert_id($this->dbh);
-		#echo "[$q]";
-		#echo "[$r]";
 		return $r;
 	}
 	
@@ -126,6 +132,12 @@ class InstructionControl_DbFunctions_NonPdo extends InstructionControl_DbFunctio
 			throw new InstructionControl_Exception("Error executing query $q");
 		}
 	}
+	function startTransaction() {
+		mysql_query('START TRANSACTION');
+	}
+	function completeTransaction() {
+		mysql_query('COMMIT');
+	}
 }
 
 /**
@@ -133,7 +145,7 @@ class InstructionControl_DbFunctions_NonPdo extends InstructionControl_DbFunctio
  *
  * @package InstructionControl
  */
-class InstructionControl_DbFunctions {
+class InstructionControl_DbFunctions_Pdo implements InstructionControl_DbFunctions {
 		
 	private $dbh = null;
 	
@@ -148,15 +160,11 @@ class InstructionControl_DbFunctions {
 		$this->dbh->exec("SET NAMES 'utf8' COLLATE 'utf8_general_ci'");
 	}
 	
-	/**
-	 * Retrieves an PDO database connection, only one will ever be made.
-	 *
-	 * @return PDO.
-	 */
-	protected function getDbConn()
+	private function getDbConn()
 	{
 		return $this->dbh;
 	}
+	
 	/**
 	 * Prepares a statement with parameters pre-binded.
 	 *
@@ -179,14 +187,7 @@ class InstructionControl_DbFunctions {
 		}
 		return $stmt;
 	}
-	/**
-	 * Performs a SELECT on the database, returning the results as an associative array.
-	 *
-	 * @param string $sql Sql to execute, parameters should be in the form :[key].
-	 * @param array $params Associative array containing parameters, keys should
-	 *	be the same as the ones from $sql.
-	 * @return array Associative array of results.
-	 */
+	
 	public function pdoGetResults($sql,$params) {
 		$stmt = $this->pdoPrepare($sql,$params);
 		$stmt->execute();
@@ -196,6 +197,36 @@ class InstructionControl_DbFunctions {
 		}
 		return $r;
 	}
+	
+	public function pdoInsert($sql,$params) {
+		$stmt = $this->pdoPrepare($sql,$params);
+		$stmt->execute();
+		return $this->dbh->lastInsertId();
+	}
+	
+	public function pdoUpdate($sql,$params) {
+		$stmt = $this->pdoPrepare($sql,$params);
+		$stmt->execute();
+	}
+
+	function startTransaction() {
+		$this->dbh->beginTransaction();
+	}
+	function completeTransaction() {
+		$this->dbh->commit();
+	}
+}
+
+Interface InstructionControl_DbFunctions {
+	/**
+	 * Performs a SELECT on the database, returning the results as an associative array.
+	 *
+	 * @param string $sql Sql to execute, parameters should be in the form :[key].
+	 * @param array $params Associative array containing parameters, keys should
+	 *	be the same as the ones from $sql.
+	 * @return array Associative array of results.
+	 */
+	function pdoGetResults($sql,$params);
 	/**
 	 * Executes an INSERT SQL statement, returning the last inserted id
 	 *
@@ -204,11 +235,7 @@ class InstructionControl_DbFunctions {
 	 *	be the same as the ones from $sql.
 	 * @return int The last inserted id.
 	 */
-	public function pdoInsert($sql,$params) {
-		$stmt = $this->pdoPrepare($sql,$params);
-		$stmt->execute();
-		return $this->dbh->lastInsertId();
-	}
+	function pdoInsert($sql,$params);
 	/**
 	 * Executes an UPDATE SQL statement
 	 *
@@ -216,11 +243,15 @@ class InstructionControl_DbFunctions {
 	 * @param array $params Associative array containing parameters, keys should
 	 *	be the same as the ones from $sql.
 	 */
-	public function pdoUpdate($sql,$params) {
-		$stmt = $this->pdoPrepare($sql,$params);
-		$stmt->execute();
-	}
-
+	function pdoUpdate($sql,$params);
+	/**
+	 * Starts a database transaction.
+	 */
+	function startTransaction();
+	/**
+	 * Commits a database transaction.
+	 */
+	function completeTransaction();
 }
 
 /**
@@ -796,4 +827,11 @@ class InstructionControl {
 		return $doc;
 	}
 	
+	public function startTransaction() {
+		self::getDbFunctionsInstance()->startTransaction();
+	}
+	
+	public function completeTransaction() {
+		self::getDbFunctionsInstance()->completeTransaction();
+	}
 }
