@@ -48,10 +48,17 @@ function genSaneGuid() {
  */
 class InstructionControl_Exception extends Exception {}
 
-class InstructionControl_DbFunctions_NonPdo {
+/**
+ * Simple database (MySQL) access class, you should use 
+ * InstructionControl_DbFunctions really, this is only here because BerliOS does
+ * not seem to have a PDO MySQL extension.
+ *
+ * @see InstructionControl_DbFunctions
+ * @package InstructionControl
+ */
+class InstructionControl_DbFunctions_NonPdo extends InstructionControl_DbFunctions {
 	
 	public function __construct($connectionString,$username,$password,$pdoAttributes) {
-		
 		if (!preg_match('/host=([^;]+)/',$connectionString,$matches)) {
 			throw new InstructionControl_Exception('Could not find DB Host '.$connectionString);
 		}
@@ -69,10 +76,13 @@ class InstructionControl_DbFunctions_NonPdo {
 	private function pdoPrepare($sql,$params) {
 		$eParams = array();
 		foreach ($params as $k=>$v) {
+			if (preg_match('/^\:/',$k)) {
+				throw new InstructionControl_Exception('Do not use keys with a : as the first character');
+			}
 			if ($v !== null) {
-				$eParams[$k] = "'".mysql_real_escape_string($v,$this->dbh)."'";
+				$eParams[':'.$k] = "'".mysql_real_escape_string($v,$this->dbh)."'";
 			} else {
-				$eParams[$k] = 'NULL';
+				$eParams[':'.$k] = 'NULL';
 			}
 		}
 		$q = str_replace(
@@ -80,21 +90,9 @@ class InstructionControl_DbFunctions_NonPdo {
 			array_values($eParams),
 			$sql
 			);
-		#print_r($eParams);
-		#print_r($sql);
-		#echo $q;
-		#echo "===============";
 		return $q;
 	}
 	
-	/**
-	 * Performs a SELECT on the database, returning the results as an associative array.
-	 *
-	 * @param string $sql Sql to execute, parameters should be in the form :[key].
-	 * @param array $params Associative array containing parameters, keys should
-	 *	be the same as the ones from $sql.
-	 * @return array Associative array of results.
-	 */
 	public function pdoGetResults($sql,$params) {
 		$q = $this->pdoPrepare($sql,$params);
 		$r = array();
@@ -108,14 +106,7 @@ class InstructionControl_DbFunctions_NonPdo {
 		#echo $q.print_r($r,1);
 		return $r;
 	}
-	/**
-	 * Executes an INSERT SQL statement, returning the last inserted id
-	 *
-	 * @param string $sql Sql to execute, parameters should be in the form :[key].
-	 * @param array $params Associative array containing parameters, keys should
-	 *	be the same as the ones from $sql.
-	 * @return int The last inserted id.
-	 */
+	
 	public function pdoInsert($sql,$params) {
 		$q = $this->pdoPrepare($sql,$params);
 		$qResult = mysql_query($q,$this->dbh);
@@ -127,13 +118,7 @@ class InstructionControl_DbFunctions_NonPdo {
 		#echo "[$r]";
 		return $r;
 	}
-	/**
-	 * Executes an UPDATE SQL statement
-	 *
-	 * @param string $sql Sql to execute, parameters should be in the form :[key].
-	 * @param array $params Associative array containing parameters, keys should
-	 *	be the same as the ones from $sql.
-	 */
+	
 	public function pdoUpdate($sql,$params) {
 		$q = $this->pdoPrepare($sql,$params);
 		$qResult = mysql_query($q,$this->dbh);
@@ -180,13 +165,16 @@ class InstructionControl_DbFunctions {
 	 *	be the same as the ones from $sql.
 	 * @return PDOStatement.
 	 */
-	public function pdoPrepare($sql,$params) {
+	private function pdoPrepare($sql,$params) {
 		# uncomment to display sql executed
 		#echo $sql.json_encode($params)."<br/><br/>";
 		$conn = $this->dbh;
 		$stmt = $conn->prepare($sql);
 		foreach ($params as $k=>$v)
 		{
+			if (preg_match('/^\:/',$k)) {
+				throw new InstructionControl_Exception('Do not use keys with a : as the first character');
+			}
 			$stmt->bindValue($k,$v,PDO::PARAM_STR);
 		}
 		return $stmt;
@@ -253,7 +241,7 @@ class InstructionControl {
 		{
 			return self::$dbFunctions;
 		}
-		self::$dbFunctions = new InstructionControl_DbFunctions(
+		self::$dbFunctions = new InstructionControl_DbFunctions_NonPdo(
 			self::getOption('PDO_DATABASE_CONNECTION_STRING'),
 			self::getOption('PDO_DATABASE_USERNAME'),
 			self::getOption('PDO_DATABASE_PASSWORD'),
@@ -321,13 +309,13 @@ class InstructionControl {
 			WHERE channel.name = :channelname
 				AND channelset_id = :channelsetid
 			',
-			array(':channelname'=>$channelName,':channelsetid'=>$channelsetId)
+			array('channelname'=>$channelName,'channelsetid'=>$channelsetId)
 			) as $row) {
 			return $row['id'];
 		}
 		return self::getDbFunctionsInstance()->pdoInsert(
 			'INSERT INTO channel (channelset_id,name) VALUES (:channelset_id,:name)',
-			array(':name'=>$channelName,':channelset_id'=>$channelsetId));
+			array('name'=>$channelName,'channelset_id'=>$channelsetId));
 	}
 		/**                                
 	 * Actually adds Data to an Instruction.
@@ -349,7 +337,7 @@ class InstructionControl {
 		// Build up a huge assoc array so we can do a big join insert (this is
 		// for only one level, we will call this function recursively to add 
 		// lower levels
-		$params = array(':instruction_id'=>$instructionId);
+		$params = array('instruction_id'=>$instructionId);
 		$i = 0;
 		$sqlv = array();
 		$unset = array();
@@ -357,9 +345,9 @@ class InstructionControl {
 			if (is_scalar($v)) {
 				if (mb_strlen($v,'8bit') <= INSTRUCTIONCONTROL_MAX_MAIN_DATA_LENGTH) // if it's short enough to just store
 				{
-					$params[':k'.$i] = $k;
-					$params[':v'.$i] = $v;
-					$params[':p'.$i] = $parentId;
+					$params['k'.$i] = $k;
+					$params['v'.$i] = $v;
+					$params['p'.$i] = $parentId;
 					$sqlv[] = sprintf('(:instruction_id,:k%d,:v%d,:p%d)',$i,$i,$i);
 					$i++;
 					$unset[] = $k;
@@ -368,12 +356,12 @@ class InstructionControl {
 					$instructionDataId = self::getDbFunctionsInstance()->pdoInsert('
 						INSERT INTO instruction_data (instruction_id,k,v,parent_id,extra)
 						VALUES (:instruction_id,:k,:v,:parent_id,1)',
-						array(':instruction_id'=>$instructionId,':k'=>$k,':v'=>$v,
-							':parent_id'=>$parentId));
+						array('instruction_id'=>$instructionId,'k'=>$k,'v'=>$v,
+							'parent_id'=>$parentId));
 					self::getDbFunctionsInstance()->pdoInsert('
 						INSERT INTO instruction_data_extra (instruction_data_id,v)
 						VALUES (:instruction_data_id,:v)',
-						array(':instruction_data_id'=>$instructionDataId,':v'=>$v));
+						array('instruction_data_id'=>$instructionDataId,'v'=>$v));
 					$unset[] = $k;
 				}
 			}
@@ -388,7 +376,7 @@ class InstructionControl {
 		foreach ($data as $k=>$v) {
 			$parentId = self::getDbFunctionsInstance()->pdoInsert('
 				INSERT INTO instruction_data (instruction_id,k,parent_id) 
-				VALUES (:i,:k,:p)',array(':i'=>$instructionId,':k'=>$k,':p'=>$parentId));
+				VALUES (:i,:k,:p)',array('i'=>$instructionId,'k'=>$k,'p'=>$parentId));
 			self::_addInstructionData($instructionId,$v,$parentId);
 			$parentId = null;
 		}
@@ -423,7 +411,7 @@ class InstructionControl {
 				ON instruction_data_extra.instruction_data_id = instruction_data.id
 				AND instruction_data.extra = 1
 			WHERE instruction.channel_id = :channelId
-			',array(':channelId'=>$channelId)) as $row) {
+			',array('channelId'=>$channelId)) as $row) {
 			if (!array_key_exists($row['position'],$ret))
 			{
 				$ret[$row['position']] = array();
@@ -515,7 +503,7 @@ class InstructionControl {
 	public static function loadUser($loginKey,$knownAs=null) {
 		foreach (self::getDbFunctionsInstance()->pdoGetResults('
 			SELECT * FROM user WHERE login_key = :lk
-			',array(':lk'=>$loginKey)) as $row) {
+			',array('lk'=>$loginKey)) as $row) {
             return $row;
         }
 		throw new InstructionControl_Exception(sprintf('Could not find User %s',$loginKey));
@@ -541,8 +529,8 @@ class InstructionControl {
             // otherwise we need to create a new record
             $loginKey = genSaneGuid();
             $communicationKey = genSaneGuid();
-            $insertData = array(':login_key'=>$loginKey,
-                ':communication_key'=>$communicationKey,':known_as'=>$knownAs);
+            $insertData = array('login_key'=>$loginKey,
+                'communication_key'=>$communicationKey,'known_as'=>$knownAs);
             $id = self::getDbFunctionsInstance()->pdoInsert('
                 insert into user (login_key,communication_key,known_as)
                 values (:login_key,:communication_key,:known_as)
@@ -554,7 +542,7 @@ class InstructionControl {
         if (($knownAs) && ($user['known_as'] != $knownAs)) {
             $stmt = InstructionControl::getDbFunctionsInstance()->pdoUpdate('
                 update user set known_as = :ka where id = :id
-                ',array(':ka'=>$knownAs,':id'=>$user['id'])
+                ',array('ka'=>$knownAs,'id'=>$user['id'])
                 );
             $stmt->execute();
             $user['known_as'] = $knownAs;
@@ -605,7 +593,7 @@ class InstructionControl {
             WHERE
                 user.id = :uid AND channelset.id = :cid
                 AND user_channelset.user_id is null;
-			',array(':uid'=>$userId,':cid'=>$channelsetId));
+			',array('uid'=>$userId,'cid'=>$channelsetId));
 	}
     /**
      * Will return all User for a specific ChannelSet.
@@ -619,7 +607,7 @@ class InstructionControl {
             INNER JOIN user_channelset
                 ON user_channelset.user_id = user.id
             WHERE user_channelset.channelset_id = :cid
-			',array(':cid'=>$channelsetId));
+			',array('cid'=>$channelsetId));
 		$r = array();
 		foreach ($allData as $ad) {
 			$r[] = $ad;
@@ -664,7 +652,7 @@ class InstructionControl {
 				coalesce(max(instruction.position)+1,0) as position
 			FROM instruction
 			WHERE channel_id = :channel_id
-			',array(':object_type'=>$objectType,':user_id'=>$userId,':channel_id'=>$channelId)
+			',array('object_type'=>$objectType,'user_id'=>$userId,'channel_id'=>$channelId)
 			);
 	}
 	/**
@@ -675,7 +663,7 @@ class InstructionControl {
 	 */
 	public static function getPositionForInstructionId($instructionId) {
 		foreach(self::getDbFunctionsInstance()->pdoGetResults('select position from instruction
-			where id = :id',array(':id'=>$instructionId)) as $row) {
+			where id = :id',array('id'=>$instructionId)) as $row) {
 			return $row['position'];
 		}
 		return null;
@@ -742,12 +730,12 @@ class InstructionControl {
 	 */
 	public static function getChannelsetId($name) {
 		foreach (self::getDbFunctionsInstance()->pdoGetResults('SELECT id FROM channelset WHERE name = :name',
-			array(':name'=>$name)) as $row) {
+			array('name'=>$name)) as $row) {
 			return $row['id'];
 		}
 		return self::getDbFunctionsInstance()->pdoInsert('
 			INSERT INTO channelset (name) values (:name)',
-			array(':name'=>$name)
+			array('name'=>$name)
 			);
 	}
 	
@@ -761,7 +749,7 @@ class InstructionControl {
 		$r = array();
 		foreach(self::getDbFunctionsInstance()->pdoGetResults('
 			SELECT id FROM channel where channelset_id = :cs ORDER BY id ASC',
-			array(':cs'=>$channelsetId)
+			array('cs'=>$channelsetId)
 			) as $row) {
 			$r[] = $row['id'];
 		}
