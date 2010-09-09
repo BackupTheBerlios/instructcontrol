@@ -1896,6 +1896,7 @@ InstructionControl.getInstance().bindClientReady(function() {
 		if (IcPage.loading.done.length == 2)
 		{
 			$('popup_template_help_show').set('disabled',false)
+			IcPage.loading.progress.set(100); // Workaround for no Instruction leaving at 0
 		}
 	});
 	
