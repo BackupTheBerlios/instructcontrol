@@ -30,7 +30,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 // =============================================================================
 
 function InstructionClient__refreshUserList(userListDoc) {
-	userList = InstructionControl.getReturnDocumentBody(userListDoc);
+	var userList = InstructionControl.getReturnDocumentBody(userListDoc);
 	var icInst = InstructionControl.getInstance();
 	var lst = icInst.getClientInstance()._getOnlineUserCommunicationKeys();
 	var icKnowsAbout = InstructionControl._getKeys(icInst.getUserList());
